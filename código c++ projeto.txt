@@ -1,0 +1,135 @@
+#include <WiFi.h>
+#include <DHT.h>
+#include <ThingSpeak.h>
+#include <LiquidCrystal_I2C.h>  
+
+
+#define nomeRede "K41SR"
+#define senha "123456789"
+
+
+#define sensorDht 4
+#define tipoSensorDht DHT11
+
+
+#define CHANNEL 2957050
+#define WRITE_API "42BXCVZ9WSCM1H55"
+#define intervalo 300000  
+
+
+#define LCD_ADDRESS 0x27
+#define LCD_COLUMNS 16
+#define LCD_ROWS 2
+
+
+WiFiClient wifiClient;
+DHT dht(sensorDht, tipoSensorDht);
+LiquidCrystal_I2C lcd(LCD_ADDRESS, LCD_COLUMNS, LCD_ROWS);  
+
+
+unsigned long ultimoTempo = 0;
+bool primeiroLoop = true;
+
+
+void initWiFi() {
+  Serial.println("Conectando WiFi...");
+  lcd.clear();
+  lcd.print("Conectando WiFi...");
+ 
+  WiFi.disconnect();
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(nomeRede, senha);
+
+
+  while (WiFi.status() != WL_CONNECTED ) {
+    delay(1000);
+    Serial.print(".");
+  }
+
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi Conectado! IP: " + WiFi.localIP().toString());
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("WiFi: ");
+    lcd.setCursor(0, 1);
+    lcd.print(WiFi.localIP().toString());
+    ThingSpeak.begin(wifiClient);
+  } else {
+    Serial.println("\nFalha ao conectar WiFi!");
+    lcd.clear();
+    lcd.print("Sem WiFi!");
+  }
+}
+
+
+void verificaWiFi() {
+  Serial.println("verificando wifi");
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi desconectado! Tentando reconectar...");
+    lcd.print("WiFi desconectado! Tentando reconectar...");
+    initWiFi();
+  }
+}
+
+
+void setup() {
+  Serial.begin(115200);
+  dht.begin();
+  delay(2000);
+  lcd.init();                      
+  lcd.backlight();                
+  lcd.print("Iniciando...");      
+
+
+  initWiFi();
+}
+
+
+void loop() {
+  verificaWiFi();  
+  float temp = dht.readTemperature();
+  float umi = dht.readHumidity();
+  float temp2 = temp - 10;
+  float umi2 = umi - 5;
+  Serial.println(temp);
+   Serial.println(umi);
+  if (isnan(temp) || isnan(umi)) {
+    Serial.println("Erro no DHT!");
+    lcd.clear();
+    lcd.print("Erro no sensor!");
+    delay(2000);  
+    return;
+  }
+
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Temp: " + String(temp, 1) + "C");
+  lcd.setCursor(0, 1);
+  lcd.print("Umid: " + String(umi, 1) + "%");
+
+
+  unsigned long now = millis();
+  if (primeiroLoop || now - ultimoTempo > intervalo) {
+    Serial.print("Enviando para ThingSpeak... ");
+    ThingSpeak.setField(1, temp);
+    ThingSpeak.setField(2, umi);
+    ThingSpeak.setField(3, temp2);
+    ThingSpeak.setField(4, umi2);
+   
+    int status = ThingSpeak.writeFields(CHANNEL, WRITE_API);
+    if (status == 200) {
+      Serial.println("OK!");
+    } else {
+      Serial.println("Erro: " + String(status));
+    }
+
+
+    ultimoTempo = now;
+    primeiroLoop = false;
+  }
+
+
+  delay(2000);
+}
