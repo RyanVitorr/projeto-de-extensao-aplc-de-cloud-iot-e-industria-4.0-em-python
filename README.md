@@ -1,7 +1,6 @@
 Projeto de extensao da cadeira de Aplc. de Cloud IOT e Industria 4.0 em Python- Estácio
 
 grupo:  Adrielly Crisley dos Santos Negreiros
-        Daniel Fernando Alves Silva
         Jonathan da Silva Pereira
         Thayza Areza Lima Rodrigues
         Rômulo Rodrigues Caciano da Silva
